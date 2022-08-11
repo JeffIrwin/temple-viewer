@@ -300,76 +300,75 @@ I64 glbl_r[4][4];
 Stl* glbl_stl = NULL;
 
 U0 myline(CDC *dc, F64 *a, F64 *b)
-{
-  GrLine3(dc, a[0], a[1], a[2], b[0], b[1], b[2]);
-}
+{$ID,2$
+GrLine3(dc, a[0], a[1], a[2], b[0], b[1], b[2]);
+$ID,-2$}
 
 U0 StlDraw(CTask *,CDC *dc)
-{
-  I64 *old_r=dc->r;
-  dc->thick=1;
-  dc->color=RED;
+{$ID,2$
+I64 *old_r=dc->r;
+dc->thick=1;
+dc->color=RED;
 
-  dc->x=320;
-  dc->y=200;
+dc->x=320;
+dc->y=200;
 
-  dc->flags|=DCF_TRANSFORMATION;
-  DCMat4x4Set(dc,glbl_r); //This assigns to dc->r and sets r_norm.
+dc->flags|=DCF_TRANSFORMATION;
+DCMat4x4Set(dc,glbl_r); //This assigns to dc->r and sets r_norm.
 
-$ID,2$Stl* s = glbl_stl;
+Stl* s = glbl_stl;
 
 //"StlDraw nv = %d\n", s->nv;
 
 I64 i, a, b, c;
 for (i = 0; i < 3 * s->nv; i += 9)
 {$ID,2$
-a = i +0;
-b = i +3;
-c = i +6;
+a = i + 0;
+b = i + 3;
+c = i + 6;
 
 myline(dc, &(s->v[a]), &(s->v[b]));
 myline(dc, &(s->v[b]), &(s->v[c]));
 myline(dc, &(s->v[c]), &(s->v[a]));
 $ID,-2$}
-$ID,-2$
-  dc->r=old_r;
-}
+
+dc->r=old_r;
+$ID,-2$}
 
 I64 StlRender(Stl* s)
 {
-  F64 é=0,è=0,ê=0,sc=1,s1=1.05;
-  SettingsPush; //See $LK,"SettingsPush",A="MN:SettingsPush"$
-  DocClear;
-$ID,2$
+$ID,2$F64 é=0,è=0,ê=0,sc=1,s1=1.05;
+SettingsPush; //See $LK,"SettingsPush",A="MN:SettingsPush"$
+DocClear;
+
 "nv = %d\n", s->nv;
-glbl_stl = s;  
+glbl_stl = s;
 
 //return 0;
-$ID,-2$
-  Fs->draw_it=&StlDraw;
-  while (!ScanChar) {
-    Mat4x4IdentEqu(glbl_r);
 
-    Mat4x4TranslationEqu(glbl_r,
-      -s->cx, -s->cy, -s->cz);
+Fs->draw_it=&StlDraw;
+while (!ScanChar)
+{$ID,2$
+Mat4x4IdentEqu(glbl_r);
 
-    Mat4x4RotZ(glbl_r,é);
-    Mat4x4RotX(glbl_r,è);
-    Mat4x4RotZ(glbl_r,ê);
+Mat4x4TranslationEqu(glbl_r,
+    -s->cx, -s->cy, -s->cz);
 
-    Mat4x4Scale(glbl_r,sc);
+Mat4x4RotZ(glbl_r,é);
+Mat4x4RotX(glbl_r,è);
+Mat4x4RotZ(glbl_r,ê);
 
-    Sleep(20);
-    é+=2*ã/70;
-    è+=2*ã/90;
-    ê+=2*ã/110;
-    sc*=s1;
-    if ( !(0.2<sc<1.4) ) s1=1/s1;
+Mat4x4Scale(glbl_r,sc);
 
-  }
-  SettingsPop;$ID,2$
-$ID,-2$$ID,2$
-glbl_stl = NULL;
+Sleep(20);
+é+=2*ã/70;
+è+=2*ã/90;
+ê+=2*ã/110;
+sc*=s1;
+if ( !(0.2<sc<1.4) ) s1=1/s1;
+$ID,-2$}
+SettingsPop;$ID,2$
+$ID,-2$glbl_stl = NULL;
 
 return 0;
 $ID,-2$}
