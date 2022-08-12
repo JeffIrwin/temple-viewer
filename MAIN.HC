@@ -10,12 +10,12 @@ return (
     c == '\r' ||
     c == '\f');
 $ID,-2$}
-$WW,1$
+
 Bool IsWS(U8 c)
 {$ID,2$
 /* Is c whitespace?
   
-   Does not skip exotic chars like vertical tab
+   Does not check exotic chars like vertical tab
 */
 return (IsNewline(c) ||
     c == ' '  ||
@@ -77,7 +77,7 @@ U0 FileGetLine(File* f, U8** ls, U8** le)
 // Line start
 *ls = f->p;
 
-// End of file
+// End of file.  TODO:U8*instead of I64
 I64 endp = f->data + f->len;
 
 U8* p = f->p;
@@ -142,7 +142,7 @@ $ID,2$/* Read an ASCII STL file named fstl.
 
 File f;
 FileOpen(fstl, &f);
-if (f.eof) return -1;
+if (f.eof) return -1; // TODO:PrintErr()
 
 //"len = %d\n", f.len;
 
@@ -214,6 +214,7 @@ s->v[i++] = Str2F64(ls, &p); ls = p;
 s->v[i++] = Str2F64(ls, &p); ls = p;
 s->v[i++] = Str2F64(ls, &p); ls = p;
 
+// TODO:refactor into GetBounds func
 if (!init)
 {$ID,2$
 init = TRUE;
@@ -236,6 +237,8 @@ zmax = Max(zmax, s->v[i-1]);
 $ID,-2$}
 $ID,-2$}
 $ID,-2$}
+FileClose(&f);
+
 "x in [%9.6f, %9.6f]\n", xmin, xmax;
 "y in [%9.6f, %9.6f]\n", ymin, ymax;
 "z in [%9.6f, %9.6f]\n", zmin, zmax;
@@ -265,13 +268,13 @@ s->xmax = xmax;
 s->ymax = ymax;
 s->zmax = zmax;
 
-FileClose(&f);
-
 return 0;
 $ID,-2$}
 
 I64 StlScale(F64 f, Stl* s)
 {$ID,2$
+/* Scale an STLs by a factor f */
+
 I64 i;
 for (i = 0; i < 3 *s->nv; i++)
   s->v[i] *= f;
@@ -357,7 +360,7 @@ DocClear;
 /* draw_it() is a callback so we cannot give it extra args.  Pass Stl pointer as a global var */
 glbl_stl = s;
 
-Fs->draw_it=&StlDraw;
+Fs->draw_it = &StlDraw;
 while (!ScanChar)
 {$ID,2$
 Mat4x4IdentEqu(glbl_r);
@@ -391,8 +394,8 @@ $ID,-2$}
 I64 StlView(U8* fstl)
 {$ID,2$
 Stl s;
-I64 io = 0;$ID,2$
-$ID,-2$
+I64 io = 0;
+
 io = StlLoad(fstl, &s);
 if (io != 0) return io;
 
@@ -400,6 +403,7 @@ I64 win_size = MinI64(
     Fs->pix_width,
     Fs->pix_height);
 
+// TODO:free if io!=0
 io = StlScale(win_size / s.r, &s);
 if (io != 0) return io;
 
@@ -418,13 +422,21 @@ U0 Main()
 Cd(__DIR__);
 U8* f;
 
-// STLfile to be viewed
+// STLfilename to be viewed
+
 f = "./DATA/BUNNY.STL";
-//f = "./DATA/TEAPOT.STL";
-
+f = "./DATA/DODECA.STL";
+
+// Big
+f = "./DATA/TEAPOT.STL";
+
+// Very big
+//f = "./DATA/BENCHY3D.STL";
+
 StlView(f);
 
-//Dir;
 $ID,-2$}
 
-Main();
+Main;
+
+$ID,-2$
