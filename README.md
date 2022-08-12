@@ -34,7 +34,7 @@ your Windows host:  http://www.ltr-data.se/opencode.html/
 
 ## Running this viewer
 
-After getting TempleOS running, copy MAIN.HC onto TempleOS.  Include it, then
+After getting TempleOS running, copy [MAIN.HC](MAIN.HC) onto TempleOS.  Include it, then
 view one of the provided STLs or any ASCII STL:
 
     StlView("/path/to/my/file.stl");
