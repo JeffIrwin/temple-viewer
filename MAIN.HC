@@ -425,10 +425,10 @@ U8* f;
 // STLfilename to be viewed
 
 f = "./DATA/BUNNY.STL";
-f = "./DATA/DODECA.STL";
+//f = "./DATA/DODECA.STL";
 
 // Big
-f = "./DATA/TEAPOT.STL";
+//f = "./DATA/TEAPOT.STL";
 
 // Very big
 //f = "./DATA/BENCHY3D.STL";
