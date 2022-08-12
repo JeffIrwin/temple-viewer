@@ -175,6 +175,13 @@ $ID,-2$}
 "Number of verts = %d\n", s->nv;
 "\n";
 
+if (s->nv <= 0)
+{$ID,2$
+PrintErr("Cannot read \"%s\".  No vertices were found.  Is this an ASCIISTLfile?\n\n", fstl);
+FileClose(&f);
+return -1;
+$ID,-2$}
+
 /* 3 dimensions, 8 bytes.  MAlloc uses 1-byte units */
 s->v = MAlloc(3 *s->nv *sizeof(F64));
 
@@ -413,12 +420,11 @@ U8* f;
 
 // STLfile to be viewed
 f = "./DATA/BUNNY.STL";
-//f = "./DATA/TEAPOT.STL";
-
+//f = "./DATA/TEAPOT.STL";
+
 StlView(f);
 
 //Dir;
 $ID,-2$}
 
-Main;
-
+Main();
