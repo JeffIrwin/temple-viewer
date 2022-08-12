@@ -299,22 +299,25 @@ $ID,-2$}
 I64 glbl_r[4][4];
 Stl* glbl_stl = NULL;
 
-U0 myline(CDC *dc, F64 *a, F64 *b)
+U0 Line(CDC* dc, F64* a, F64* b)
 {$ID,2$
+/* This is wrapper that takes 2 arrays instead of 6 scalars */
 GrLine3(dc, a[0], a[1], a[2], b[0], b[1], b[2]);
 $ID,-2$}
 
-U0 StlDraw(CTask *,CDC *dc)
+U0 StlDraw(CTask* ct, CDC* dc)
 {$ID,2$
 I64 *old_r=dc->r;
 dc->thick=1;
 dc->color=RED;
 
-dc->x=320;
-dc->y=200;
+/* Translate origin to center of window.  This even works if you resize the window mid-render */
+
+dc->x = ct->pix_width  / 2; // measured from left
+dc->y = ct->pix_height / 2; // measured from top
 
 dc->flags|=DCF_TRANSFORMATION;
-DCMat4x4Set(dc,glbl_r); //This assigns to dc->r and sets r_norm.
+DCMat4x4Set(dc,glbl_r); /*This assigns to dc->r and sets r_norm.*/
 
 Stl* s = glbl_stl;
 
@@ -323,13 +326,16 @@ Stl* s = glbl_stl;
 I64 i, a, b, c;
 for (i = 0; i < 3 * s->nv; i += 9)
 {$ID,2$
+// Triangle loop
+
+// Vertex x indices
 a = i + 0;
 b = i + 3;
 c = i + 6;
 
-myline(dc, &(s->v[a]), &(s->v[b]));
-myline(dc, &(s->v[b]), &(s->v[c]));
-myline(dc, &(s->v[c]), &(s->v[a]));
+Line(dc, &(s->v[a]), &(s->v[b]));
+Line(dc, &(s->v[b]), &(s->v[c]));
+Line(dc, &(s->v[c]), &(s->v[a]));
 $ID,-2$}
 
 dc->r=old_r;
@@ -341,19 +347,19 @@ $ID,2$F64 é=0,è=0,ê=0,sc=1,s1=1.05;
 SettingsPush; //See $LK,"SettingsPush",A="MN:SettingsPush"$
 DocClear;
 
-"nv = %d\n", s->nv;
+/* draw_it() is a callback so we cannot give it extra args.  Pass Stl pointer as a global var */
 glbl_stl = s;
-
-//return 0;
 
 Fs->draw_it=&StlDraw;
 while (!ScanChar)
 {$ID,2$
 Mat4x4IdentEqu(glbl_r);
 
+/* Translate center of model to origin */
 Mat4x4TranslationEqu(glbl_r,
     -s->cx, -s->cy, -s->cz);
 
+// Rotations about origin
 Mat4x4RotZ(glbl_r,é);
 Mat4x4RotX(glbl_r,è);
 Mat4x4RotZ(glbl_r,ê);
@@ -383,7 +389,11 @@ $ID,-2$
 io = StlLoad(fstl, &s);
 if (io != 0) return io;
 
-io = StlScale(300.0 / s.r, &s);
+I64 win_size = MinI64(
+    Fs->pix_width,
+    Fs->pix_height);
+
+io = StlScale(win_size / s.r, &s);
 if (io != 0) return io;
 
 io = StlRender(&s);
@@ -398,11 +408,12 @@ $ID,-2$}
 
 U0 Main()
 {$ID,2$
+Cd(__DIR__);
 U8* f;
 
 // STLfile to be viewed
-f = "~/TEMPLE-VIEWER/DATA/BUNNY.STL";
-//f = "~/TEMPLE-VIEWER/DATA/TEAPOT.STL";
+f = "./DATA/BUNNY.STL";
+//f = "./DATA/TEAPOT.STL";
 
 StlView(f);
 
@@ -411,4 +422,3 @@ $ID,-2$}
 
 Main;
 
-$ID,-2$
