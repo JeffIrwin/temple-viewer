@@ -13,7 +13,7 @@
 # -m: mount point
 # -v: volume number (1 should be TempleOS C:/ drive)
 #
-imdisk -a -f /c/git/qemu/templeos/tdisk.img -m T: -v 1
+imdisk -a -f ./scratch/tdisk.img -m T: -v 1
 
 #=======================================================================
 

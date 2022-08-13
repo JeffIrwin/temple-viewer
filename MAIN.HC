@@ -77,8 +77,8 @@ U0 FileGetLine(File* f, U8** ls, U8** le)
 // Line start
 *ls = f->p;
 
-// End of file.  TODO:U8*instead of I64
-I64 endp = f->data + f->len;
+// End of file
+U8* endp = f->data + f->len;
 
 U8* p = f->p;
 while (!IsNewline(*p) && p < endp)
@@ -116,7 +116,7 @@ class Stl
 // Number of vertices
 I64 nv;
 
-/* Vertex coordinates, size 3 *nv.  Every 3 vertices (9 array elems) make a triangle.  There is no vertex equivalencing */
+/* Vertex coordinates, size 3 * nv.  Every 3 vertices (9 array elems) make a triangle.  There is no vertex equivalencing */
 F64* v;
 
 // Bounding box
@@ -131,9 +131,59 @@ F64 cx, cy, cz;
 F64 r;
 $ID,-2$};
 
+I64 StlGetBounds(Stl* s)
+{$ID,2$
+/* Get bounds and related info for an Stl s */
+
+// Initialize bounds at first vertex
+s->xmin = s->v[0];
+s->zmin = s->v[1];
+s->ymin = s->v[2];
+
+s->xmax = s->xmin;
+s->ymax = s->ymin;
+s->zmax = s->zmin;
+
+// Loop through remaining vertices
+I64 i;
+for (i = 3; i < 3 * s->nv; i += 3)
+{$ID,2$
+s->xmin = Min(s->xmin, s->v[i+0]);
+s->ymin = Min(s->ymin, s->v[i+1]);
+s->zmin = Min(s->zmin, s->v[i+2]);
+
+s->xmax = Max(s->xmax, s->v[i+0]);
+s->ymax = Max(s->ymax, s->v[i+1]);
+s->zmax = Max(s->zmax, s->v[i+2]);
+$ID,-2$}
+
+"x in [%9.6f, %9.6f]\n", s->xmin, s->xmax;
+"y in [%9.6f, %9.6f]\n", s->ymin, s->ymax;
+"z in [%9.6f, %9.6f]\n", s->zmin, s->zmax;
+"\n";
+
+s->cx = 0.5 * (s->xmin + s->xmax);
+s->cy = 0.5 * (s->ymin + s->ymax);
+s->cz = 0.5 * (s->zmin + $WW,1$s->zmax);
+
+/*"Center = %9.6f %9.6f %9.6f\n",
+    s->cx,
+    s->cy,
+    s->cz;
+*/
+s->r = 0.5 * Sqrt(
+    Sqr(s->xmax - s->xmin) +
+    Sqr(s->ymax - s->ymin) +
+    Sqr(s->zmax - s->zmin));
+
+//"Radius = %9.6f\n", s->r;
+
+return 0;
+$ID,-2$}
+
 I64 StlLoad(U8* fstl, Stl* s)
 {
-$ID,2$/* Read an ASCII STL file named fstl.
+$ID,2$/* Read an ASCII STL file named fstl.  Binary files are not supported.  Also get bounds.
 
    Set Stl out arg s.
 */
@@ -142,7 +192,11 @@ $ID,2$/* Read an ASCII STL file named fstl.
 
 File f;
 FileOpen(fstl, &f);
-if (f.eof) return -1; // TODO:PrintErr()
+if (f.eof)
+{$ID,2$
+PrintErr("File not found or empty\n\n");
+return -1;
+$ID,-2$}
 
 //"len = %d\n", f.len;
 
@@ -164,7 +218,7 @@ SkipWS(&ls, &le);
 
 //"%d\n", f->eof;
 /*if (nlines > 66058) PrintLine(ls, le);*/
-/*if (nlines <10) PrintLine(ls, le);*/
+/*if (nlines < 10) PrintLine(ls, le);*/
 
 /* Case-insensitive str comparison */
 if (StrNICmp(ls, VrtId, StrLen(VrtId)) == 0)
@@ -177,22 +231,19 @@ $ID,-2$}
 
 if (s->nv <= 0)
 {$ID,2$
-PrintErr("Cannot read \"%s\".  No vertices were found.  Is this an ASCIISTLfile?\n\n", fstl);
+PrintErr("Cannot read \"%s\".  No vertices were found.  Is this an ASCII STL file?\n\n", fstl);
 FileClose(&f);
 return -1;
 $ID,-2$}
 
 /* 3 dimensions, 8 bytes.  MAlloc uses 1-byte units */
-s->v = MAlloc(3 *s->nv *sizeof(F64));
+s->v = MAlloc(3 * s->nv * sizeof(F64));
 
 //"&v = %x\n", s->v;
-
-F64 xmin, xmax, ymin, ymax, zmin, zmax;
 
 // Re-read and save vertices v
 FileRewind(&f);
 I64 i = 0;
-Bool init = FALSE;
 while (!f.eof)
 {$ID,2$
 //"%d\n", i;
@@ -201,7 +252,7 @@ SkipWS(&ls, &le);
 
 if (StrNICmp(ls, VrtId, StrLen(VrtId)) == 0)
 {$ID,2$
-/*if (i <10) PrintLine(ls, le);*/
+/*if (i < 10) PrintLine(ls, le);*/
 
 /* Skip to the end of the "vertex" str */
 ls += StrLen(VrtId);
@@ -213,70 +264,22 @@ U8* p;
 s->v[i++] = Str2F64(ls, &p); ls = p;
 s->v[i++] = Str2F64(ls, &p); ls = p;
 s->v[i++] = Str2F64(ls, &p); ls = p;
-
-// TODO:refactor into GetBounds func
-if (!init)
-{$ID,2$
-init = TRUE;
-xmin = s->v[i-3];
-ymin = s->v[i-2];
-zmin = s->v[i-1];
-xmax = xmin;
-ymax = ymin;
-zmax = zmin;
-$ID,-2$}
-else
-{$ID,2$
-xmin = Min(xmin, s->v[i-3]);
-ymin = Min(ymin, s->v[i-2]);
-zmin = Min(zmin, s->v[i-1]);
-
-xmax = Max(xmax, s->v[i-3]);
-ymax = Max(ymax, s->v[i-2]);
-zmax = Max(zmax, s->v[i-1]);
-$ID,-2$}
 $ID,-2$}
 $ID,-2$}
 FileClose(&f);
 
-"x in [%9.6f, %9.6f]\n", xmin, xmax;
-"y in [%9.6f, %9.6f]\n", ymin, ymax;
-"z in [%9.6f, %9.6f]\n", zmin, zmax;
-"\n";
-
-s->cx = 0.5 *(xmin +xmax);
-s->cy = 0.5 *(ymin +ymax);
-s->cz = 0.5 *(zmin +zmax);
-
-//"Center = %9.6f %9.6f %9.6f\n",
-//    s->cx,
-//    s->cy,
-//    s->cz;
-
-s->r = 0.5 *Sqrt(
-    Sqr(xmax - xmin) +
-    Sqr(ymax - ymin) +
-    Sqr(zmax - zmin));
-
-//"Radius = %9.6f\n", s->r;
-
-s->xmin = xmin;
-s->ymin = ymin;
-s->zmin = zmin;
-
-s->xmax = xmax;
-s->ymax = ymax;
-s->zmax = zmax;
+I64 io = StlGetBounds(s);
+if (io != 0) return io;
 
 return 0;
 $ID,-2$}
 
 I64 StlScale(F64 f, Stl* s)
 {$ID,2$
-/* Scale an STLs by a factor f */
+/* Scale an STL s by a factor f */
 
 I64 i;
-for (i = 0; i < 3 *s->nv; i++)
+for (i = 0; i < 3 * s->nv; i++)
   s->v[i] *= f;
 
 s->xmin *= f;
@@ -393,6 +396,8 @@ $ID,-2$}
 
 I64 StlView(U8* fstl)
 {$ID,2$
+/* Read and graphically render an STL file */
+
 Stl s;
 I64 io = 0;
 
@@ -403,13 +408,14 @@ I64 win_size = MinI64(
     Fs->pix_width,
     Fs->pix_height);
 
-// TODO:free if io!=0
+// Fit Stl to screen
 io = StlScale(win_size / s.r, &s);
-if (io != 0) return io;
+if (io != 0) goto free;
 
 io = StlRender(&s);
 if (io != 0) return io;
 
+free:
 StlFree(&s);
 
 return io;
@@ -422,7 +428,7 @@ U0 Main()
 Cd(__DIR__);
 U8* f;
 
-// STLfilename to be viewed
+// STL filename to be viewed
 
 f = "./DATA/BUNNY.STL";
 //f = "./DATA/DODECA.STL";
@@ -439,4 +445,4 @@ $ID,-2$}
 
 Main;
 
-$ID,-2$
+$ID,-2$
