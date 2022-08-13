@@ -2,3 +2,6 @@
 # Keep ISO and disk img here:
 scratch/
 
+# Big useless file
+DATA/benchy3d.stl
+
