@@ -107,6 +107,63 @@ while (p < endp)
   "%c", *p++;
 $ID,-2$}
 
+F64 FileReadF32(File* file)
+{$ID,2$
+/* Read a 32 bit float from a binary file.  Since F32 is not implemented in HolyC, convert and return F64 instead.  This does not handle special floats like Inf or NaN correctly.
+
+   The figure below shows the bit layout of the IEEE 754 float (top) and double (bottom):
+
+   | sign | exponent  | fraction |
+   |------|-----------|----------|
+   | 31   | 30 <-> 23 |22 <-> 0 |
+   | 63   | 62 <-> 52 | 51 <-> 0 |
+*/
+
+// Return val
+F64 x;
+
+// Pointer to bits in file
+U32* p; // works as I32 too
+p = file->p;
+file->p += sizeof(U32);
+//"p = %x\n", *p;
+//"p = %032b\n", *p;
+
+// TODO: set eof
+
+// Initialize bits to 0 by aliasing an int
+U64* ix = &x;
+*ix = 0;
+
+/* Copy the float sign (bit 31) to the double sign (bit 64) */
+//BEqu(&x, 63, *p >> 31);
+x |= (*p >> 31) << 63;
+
+/* Exponent.  127 and 1023 are the float and double biases */
+
+/*U16 e;
+e = 0xff & (*p >> 23);
+e -= 127;
+e += 1023;
+x |= e << 52;*/
+
+x |= ((0xff & (*p >> 23)) - 127 + 1023) << 52;
+
+// Fraction
+
+/*U32 f;
+f = 0x7fffff & (*p);
+x |= f << (51 - 22);*/
+
+x |= (0x7fffff & *p) << (51 - 22);
+
+//"x = %064b\n", x;
+//"x = %e\n", x;
+//"\n";
+
+return x;
+$ID,-2$}
+
 //================================
 
 class Stl
@@ -137,8 +194,8 @@ I64 StlGetBounds(Stl* s)
 
 // Initialize bounds at first vertex
 s->xmin = s->v[0];
-s->zmin = s->v[1];
-s->ymin = s->v[2];
+s->ymin = s->v[1];
+s->zmin = s->v[2];
 
 s->xmax = s->xmin;
 s->ymax = s->ymin;
@@ -181,14 +238,14 @@ s->r = 0.5 * Sqrt(
 return 0;
 $ID,-2$}
 
-I64 StlLoad(U8* fstl, Stl* s)
-{
-$ID,2$/* Read an ASCII STL file named fstl.  Binary files are not supported.  Also get bounds.
+I64 StlLoadAscii(U8* fstl, Stl* s)
+{$ID,2$
+/* Read an ASCII STL file named fstl.
 
    Set Stl out arg s.
 */
 
-"\nReading \"%s\" ...\n\n", fstl;
+//"\nReading \"%s\" ...\n\n", fstl;
 
 File f;
 FileOpen(fstl, &f);
@@ -231,6 +288,7 @@ $ID,-2$}
 
 if (s->nv <= 0)
 {$ID,2$
+/*TODO:move err out of ascii/bin readers */
 PrintErr("Cannot read \"%s\".  No vertices were found.  Is this an ASCII STL file?\n\n", fstl);
 FileClose(&f);
 return -1;
@@ -268,7 +326,107 @@ $ID,-2$}
 $ID,-2$}
 FileClose(&f);
 
-I64 io = StlGetBounds(s);
+return 0;
+$ID,-2$}
+
+I64 StlLoadBin(U8* fstl, Stl* s)
+{$ID,2$
+/* Read a binary STL file named fstl.
+
+   Set Stl out arg s.
+*/
+
+//"\nReading \"%s\" ...\n\n", fstl;
+
+File f;
+FileOpen(fstl, &f);
+if (f.eof)
+{$ID,2$
+PrintErr("File not found or empty\n\n");
+return -1;
+$ID,-2$}
+
+//"len = %d\n", f.len;
+
+/* Pointers to start and end of line */
+U8* ls;
+U8* le;
+
+I64 hlen = 80;
+ls = f.data;
+le = ls + hlen;
+f.p += hlen;
+
+"STLheader = \"";
+PrintLine(ls, le);
+"\"\n";
+
+//U32 ntri = (U32) *f.p;
+U32* ntri;
+ntri = f.p;
+f.p += sizeof(U32);
+"ntri = %d\n\n", *ntri;
+
+// TODO: print, return err if <0
+s->nv = 3 * *ntri;
+"\nNumber of verts = %d\n", s->nv;
+"\n";
+
+s->v = MAlloc(3 * s->nv * sizeof(F64));
+
+// TODO:this should be unnecessary
+//MemSet(s->v, 0, 8 * 3 * s->nv);
+
+I64 i, j, k;
+k = 0;
+for (i = 0; i < *ntri; i++)
+{$ID,2$
+//"Triangle %d\n", i;
+
+// Ignore normals
+for (j = 0; j < 3; j++)
+{$ID,2$
+//F64 x = FileReadF32(&f);
+f.p += 4;
+$ID,-2$}
+
+// Save vertices
+for (j = 0; j < 9; j++)
+{$ID,2$
+//"j = %d\n", j;
+s->v[k++] = FileReadF32(&f);
+$ID,-2$}
+
+// Skip 2 junk bytes required by STL spec
+f.p += 2;
+$ID,-2$}
+
+// TODO: check eof
+
+FileClose(&f);
+
+return 0;
+$ID,-2$}
+
+I64 StlLoad(U8* fstl, Stl* s)
+{
+$ID,2$/* Read an STL file named fstl.  Also get bounds.
+
+   Set Stl out arg s.
+*/
+
+"\nReading \"%s\" ...\n\n", fstl;
+$WW,0$
+I64 io;
+
+io = StlLoadAscii(fstl, s);
+if (io != 0)
+{$ID,2$
+io = StlLoadBin(fstl, s);
+if (io != 0) return io;
+$ID,-2$}
+
+io = StlGetBounds(s);
 if (io != 0) return io;
 
 return 0;
@@ -428,13 +586,14 @@ U0 Main()
 Cd(__DIR__);
 U8* f;
 
-// STL filename to be viewed
+// STL filename to be viewed
 
+f = "./DATA/ASCII.STL";
 f = "./DATA/BUNNY.STL";
 //f = "./DATA/DODECA.STL";
 
 // Big
-//f = "./DATA/TEAPOT.STL";
+//f = "./DATA/utahteapot.stl";
 
 // Very big
 //f = "./DATA/BENCHY3D.STL";
@@ -445,4 +604,4 @@ $ID,-2$}
 
 Main;
 
-$ID,-2$
+$ID,-2$
