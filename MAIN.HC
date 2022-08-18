@@ -60,7 +60,7 @@ $ID,-2$}
 
 I64 FileClose(File* f)
 {$ID,2$
-"Closing file\n";
+//"Closing file\n";
 Free(f->data);
 f->len = 0;
 f->eof = TRUE;
@@ -111,11 +111,11 @@ F64 FileReadF32(File* file)
 {$ID,2$
 /* Read a 32 bit float from a binary file.  Since F32 is not implemented in HolyC, convert and return F64 instead.  This does not handle special floats like Inf or NaN correctly.
 
-   The figure below shows the bit layout of the IEEE 754 float (top) and double (bottom):
+   The table below shows the bit layout of the IEEE 754 float (top) and double (bottom):
 
    | sign | exponent  | fraction |
    |------|-----------|----------|
-   | 31   | 30 <-> 23 |22 <-> 0 |
+   | 31   | 30 <-> 23 | 22 <-> 0 |
    | 63   | 62 <-> 52 | 51 <-> 0 |
 */
 
@@ -129,32 +129,19 @@ file->p += sizeof(U32);
 //"p = %x\n", *p;
 //"p = %032b\n", *p;
 
-// TODO: set eof
+file->eof = (file->data + file->len - file->p <= 0);
 
 // Initialize bits to 0 by aliasing an int
 U64* ix = &x;
 *ix = 0;
 
 /* Copy the float sign (bit 31) to the double sign (bit 64) */
-//BEqu(&x, 63, *p >> 31);
 x |= (*p >> 31) << 63;
 
-/* Exponent.  127 and 1023 are the float and double biases */
-
-/*U16 e;
-e = 0xff & (*p >> 23);
-e -= 127;
-e += 1023;
-x |= e << 52;*/
-
+/* Exponent.  Right shifting discards the fraction bits right of the expo, while anding with 0xff discards the sign bit left of the expo.  127 and 1023 are the float and double biases.  Finally, left shift the result by 52 to place the expo correctly in the double bits. */
 x |= ((0xff & (*p >> 23)) - 127 + 1023) << 52;
 
 // Fraction
-
-/*U32 f;
-f = 0x7fffff & (*p);
-x |= f << (51 - 22);*/
-
 x |= (0x7fffff & *p) << (51 - 22);
 
 //"x = %064b\n", x;
@@ -188,6 +175,14 @@ F64 cx, cy, cz;
 F64 r;
 $ID,-2$};
 
+U0 StlFree(Stl* s)
+{$ID,2$
+//"Freeing STL ...\n";
+//"&v = %x\n", s->v;
+Free(s->v);
+s->nv = 0;
+$ID,-2$}
+
 I64 StlGetBounds(Stl* s)
 {$ID,2$
 /* Get bounds and related info for an Stl s */
@@ -214,9 +209,9 @@ s->ymax = Max(s->ymax, s->v[i+1]);
 s->zmax = Max(s->zmax, s->v[i+2]);
 $ID,-2$}
 
-"x in [%9.6f, %9.6f]\n", s->xmin, s->xmax;
-"y in [%9.6f, %9.6f]\n", s->ymin, s->ymax;
-"z in [%9.6f, %9.6f]\n", s->zmin, s->zmax;
+"x in [%e, %e]\n", s->xmin, s->xmax;
+"y in [%e, %e]\n", s->ymin, s->ymax;
+"z in [%e, %e]\n", s->zmin, s->zmax;
 "\n";
 
 s->cx = 0.5 * (s->xmin + s->xmax);
@@ -282,17 +277,15 @@ if (StrNICmp(ls, VrtId, StrLen(VrtId)) == 0)
   s->nv++;
 $ID,-2$}
 
-/*"Number of lines = %d\n", nlines;*/
-"Number of verts = %d\n", s->nv;
-"\n";
-
 if (s->nv <= 0)
 {$ID,2$
-/*TODO:move err out of ascii/bin readers */
-PrintErr("Cannot read \"%s\".  No vertices were found.  Is this an ASCII STL file?\n\n", fstl);
 FileClose(&f);
 return -1;
 $ID,-2$}
+
+/*"Number of lines = %d\n", nlines;*/
+"Number of verts = %d\n", s->nv;
+"\n";
 
 /* 3 dimensions, 8 bytes.  MAlloc uses 1-byte units */
 s->v = MAlloc(3 * s->nv * sizeof(F64));
@@ -357,25 +350,26 @@ ls = f.data;
 le = ls + hlen;
 f.p += hlen;
 
-"STLheader = \"";
+"STL header = \"";
 PrintLine(ls, le);
 "\"\n";
 
-//U32 ntri = (U32) *f.p;
 U32* ntri;
 ntri = f.p;
 f.p += sizeof(U32);
-"ntri = %d\n\n", *ntri;
+//"ntri = %d\n\n", *ntri;
 
-// TODO: print, return err if <0
 s->nv = 3 * *ntri;
 "\nNumber of verts = %d\n", s->nv;
 "\n";
 
-s->v = MAlloc(3 * s->nv * sizeof(F64));
+if (s->nv <= 0)
+{$ID,2$
+FileClose(&f);
+return -1;
+$ID,-2$}
 
-// TODO:this should be unnecessary
-//MemSet(s->v, 0, 8 * 3 * s->nv);
+s->v = MAlloc(3 * s->nv * sizeof(F64));
 
 I64 i, j, k;
 k = 0;
@@ -397,14 +391,18 @@ for (j = 0; j < 9; j++)
 s->v[k++] = FileReadF32(&f);
 $ID,-2$}
 
+if (f.eof)
+{$ID,2$
+FileClose(&f);
+StlFree(s);
+return -1;
+$ID,-2$}
+
 // Skip 2 junk bytes required by STL spec
 f.p += 2;
 $ID,-2$}
 
-// TODO: check eof
-
 FileClose(&f);
-
 return 0;
 $ID,-2$}
 
@@ -423,7 +421,11 @@ io = StlLoadAscii(fstl, s);
 if (io != 0)
 {$ID,2$
 io = StlLoadBin(fstl, s);
-if (io != 0) return io;
+if (io != 0)
+{$ID,2$
+$WW,1$PrintErr("Cannot read \"%s\".  Is the STLproperly formatted?\n\n", fstl);
+$WW,1$return io;
+$ID,-2$}
 $ID,-2$}
 
 io = StlGetBounds(s);
@@ -455,14 +457,6 @@ s->cz *= f;
 s->r  *= f;
 
 return 0;
-$ID,-2$}
-
-U0 StlFree(Stl* s)
-{$ID,2$
-//"Freeing STL ...\n";
-//"&v = %x\n", s->v;
-Free(s->v);
-s->nv = 0;
 $ID,-2$}
 
 //================================
