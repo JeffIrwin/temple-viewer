@@ -5,7 +5,7 @@
 
 3D model viewer for TempleOS
 
-![](doc/temple-viewer-demo2.gif)
+![](doc/temple-viewer-demo2.mp4)
 
 ## TempleOS basics
 
