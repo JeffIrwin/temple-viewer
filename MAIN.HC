@@ -475,6 +475,9 @@ glbl_view_mode = VIEW_MODE_SURF; /* default */
 Bool glbl_show_help = TRUE;
 Bool glbl_show_dbg  = FALSE;
 
+/* Fixed-point scaling constant.  This allows smooth panning even when zoomed in very close, instead of discrete panning of 1 pixel unit from initial zoom level */
+#define FPC 10000
+
 //================================
 
 // Graphic helpers
@@ -523,6 +526,8 @@ DCDepthBufAlloc(dc);
 // TODO: refactor into another function
 if (glbl_show_dbg)
 {$ID,2$
+// TODO: multiply by FPC or change format
+
 /* Apparently there's a limit to the number of pritn args, so you can't do this all at once */
 I64 y0 = 90, dy = 10;
 GrPrint(dc, 0, y0, "%9.6f %9.6f %9.6f",
@@ -545,10 +550,10 @@ U8* help =
     "h: toggle help\n"
     "s: surface\n"
     "w: wireframe\n"
-    "lb: rotate\n"
-    "rb: pan\n"
-    "scroll: zoom\n"
-    "ESC: exit";
+    "LMB: rotate\n"
+    "RMB: pan\n"
+    "Scroll: zoom\n"
+    "Esc: exit";
 
 if (glbl_show_help)
   GrPrint(dc, FONT_WIDTH, 0, help);
@@ -575,6 +580,7 @@ Line(dc, &(s->v[c]), &(s->v[a]));
 $ID,-2$}
 else /*if (glbl_view_mode == VIEW_MODE_SURF)*/
 {$ID,2$
+/* TODO: experiment w/ light source and add single-color mode */
 FillTri(dc, &(s->v[a]), &(s->v[b]), &(s->v[c]), (i/9) % (COLORS_NUM-1));
 $ID,-2$}
 $ID,-2$}
@@ -588,7 +594,7 @@ $ID,-2$}
 
   As is common in graphics, Terry uses augmented 4x4 matrices to store rotations, translations, and scaling in a single matrix.  The upper-left 3x3 is the rotation matrix, the right 3x1 column is the translation, and the lower-right element is the scaling.
 
- Depending on the degree of pointer indirection, the matrix is either a rank-2 array of size 4x4 or rank-1 size 16:
+  Depending on the degree of pointer indirection, the matrix is either a rank-2 array of size 4x4 or rank-1 size 16:
 
   [  0  1  2  3 ]
   [  4  5  6  7 ]
@@ -626,7 +632,11 @@ t *= GR_SCALE;
 I64 r[16];
 MemSet(r, 0, sizeof(r));
 
-// Ref: wikipedia
+/* Ref: wikipedia 
+ *
+ *     https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
+ *
+ */
 r[ 0] = c + x*x*t;
 r[ 1] = x*y*t - z*s;
 r[ 2] = z*x*t + y*s;
@@ -654,7 +664,7 @@ DocClear;
 /* draw_it() is a callback so we cannot give it extra args.  Pass Stl pointer as a global var */
 glbl_stl = s;
 
-F64 x, y, z, zm, x0, y0, z0,
+F64 x, y, z, zoom, x0, y0, z0,
     xr, yr, xr0, yr0,
     tx, ty, tx0, ty0;
 
@@ -679,7 +689,7 @@ ty0 = 0;
 tx = tx0;
 ty = ty0;
 
-zm = 1.0;
+zoom = 1.0;
 
 /* Local rot matrices for saving rot state */
 I64 r[4][4], r0[4][4];
@@ -724,8 +734,8 @@ if (ms.rb)
 xr = ms.pos.x;
 yr = ms.pos.y;
 
-tx = (xr - xr0)/zm + tx0;
-ty = (yr - yr0)/zm + ty0;
+tx = (xr - xr0)/zoom + tx0;
+ty = (yr - yr0)/zoom + ty0;
 $ID,-2$}
 else
 {$ID,2$
@@ -743,7 +753,7 @@ y = ms.pos.y;
 
 F64 ux, uy, theta;
 
-/* In-screen right-hand normal to drag direction */
+/* Screen-plane right-hand normal to drag direction */
 ux =  (y - y0);
 uy = -(x - x0);
 
@@ -776,11 +786,11 @@ Mat4x4TranslationEqu(glbl_r,
 Mat4x4Mul(glbl_r, r);
 
 /* Apply mouse pan after rotation so it pans in screen XY coordinate system (not model XY). */
-Mat4x4TranslationAdd(glbl_r, tx, ty, 0);
+Mat4x4TranslationAdd(glbl_r, FPC*tx, FPC*ty, 0);
 
-/* Use Exp so zm is always positive.  Zoom is towards screen center, not cursor or model */
-zm = Exp(0.05 * (ms.pos.z - z0));
-Mat4x4Scale(glbl_r, zm);
+/* Use Exp so zoom is always positive.  Zoom is towards screen center, not cursor or model */
+zoom = Exp(0.05 * (ms.pos.z - z0));
+Mat4x4Scale(glbl_r, zoom / FPC);
 
 Sleep(20);
 $ID,-2$}
@@ -788,6 +798,7 @@ SettingsPop;$ID,2$
 $ID,-2$glbl_stl = NULL;
 
 //"glbl_r[10] = %d\n", glbl_r[2][2];
+"GR_SCALE = %d\n", GR_SCALE;
 
 return 0;
 $ID,-2$}
@@ -808,7 +819,7 @@ I64 win_size = MinI64(
     Fs->pix_width,
     Fs->pix_height);
 
-io = StlScale(0.6 * win_size / s.r, &s);
+io = StlScale(0.6 * FPC * win_size / s.r, &s);
 if (io != 0) goto free;
 
 //return 0;
@@ -816,14 +827,14 @@ io = StlRender(&s);
 if (io != 0) return io;
 
 free:
-StlFree(&s);
+StlFree(&s);
 
 return io;
 $ID,-2$}
 
 //================================
 
-U0 Main()
+U0 ViewerMain()
 {$ID,2$
 Cd(__DIR__);
 U8* f;
@@ -846,6 +857,6 @@ StlView(f);
 
 $ID,-2$}
 
-Main;
+ViewerMain;
 
-$ID,-2$
+$ID,-2$
