@@ -5,7 +5,7 @@
 
 3D model viewer for TempleOS
 
-https://user-images.githubusercontent.com/9020034/185764326-b208001f-5536-4e79-8dcf-fdfb44991156.mp4
+![](doc/temple-viewer-demo2.gif)
 
 ## TempleOS basics
 
