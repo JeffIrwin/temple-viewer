@@ -3,21 +3,29 @@ $ID,2$#include "StlIo"
 
 //================================
 
+/* Constants */
+
+#define VIEW_MODE_WIRE 0
+#define VIEW_MODE_SURF 1
+
+$WW,1$/* Fixed-point scaling constant.  This allows smooth panning even when zoomed in very close, instead of discrete panning of 1 pixel unit from initial zoom level */
+#define FPC 0x4000
+
+// Keyboard shortcuts
+#define CH_HELP 'h'
+#define CH_SURF 's'
+#define CH_WIRE 'w'
+#define CH_DBG  'd'
+
 /* Global settings */
 
 I64 glbl_r[4][4];
 Stl* glbl_stl = NULL;
 
-#define VIEW_MODE_WIRE 0
-#define VIEW_MODE_SURF 1
-
 I64 glbl_view_mode = VIEW_MODE_SURF; /* default */
 
 Bool glbl_show_help = TRUE;
 Bool glbl_show_dbg  = FALSE;
-
-$WW,1$/* Fixed-point scaling constant.  This allows smooth panning even when zoomed in very close, instead of discrete panning of 1 pixel unit from initial zoom level */
-#define FPC 0x4000
 
 //================================
 
@@ -45,20 +53,28 @@ $ID,-2$}
 
 //================================
 
-U0 GrPrintHelp(CDC* dc)
+U0 GrPrintText(CTask* ct, CDC* dc)
 {$ID,2$
 dc->color = BLACK;
 
+/* TODO: define version elsewhere */
+U8* me = "temple-viewer 0.0.1";
+I64 x = ct->pix_width - (StrLen(me)+1) * FONT_WIDTH;
+GrPrint(dc, x, 0, me);
+
 if (glbl_show_help)
 {$ID,2$
-U8* help =
-    "h: toggle help\n"
-    "s: surface\n"
-    "w: wireframe\n"
+U8* help = MStrPrint(
+    "%c: toggle help\n"
+    "%c: surface\n"
+    "%c: wireframe\n"
     "LMB: rotate\n"
     "RMB: pan\n"
     "Scroll: zoom\n"
-    "Esc: exit";
+    "Esc: exit",
+    CH_HELP,
+    CH_SURF,
+    CH_WIRE);
 
 GrPrint(dc, FONT_WIDTH, 0, help);
 $ID,-2$}
@@ -67,26 +83,23 @@ if (glbl_show_dbg)
 {$ID,2$
 F64 f = 1.0 * FPC / GR_SCALE;
 
-/* Apparently there's a limit to the number of print args, so you can't do this all at once */
-I64 y0 = 90, dy = 10;
-GrPrint(dc, 0, y0, "%9.6f %9.6f %9.6f",
-f*glbl_r[0][0],
-f*glbl_r[0][1],
-f*glbl_r[0][2]);
-GrPrint(dc, 0, y0+dy, "%9.6f %9.6f %9.6f",
-f*glbl_r[1][0],
-f*glbl_r[1][1],
-f*glbl_r[1][2]);
-GrPrint(dc, 0, y0+2*dy, "%9.6f %9.6f %9.6f", f*glbl_r[2][0],
-f*glbl_r[2][1],
-f*glbl_r[2][2]);
-GrPrint(dc, 0, y0+3*dy, " d: toggle debug");
+U8* debug = MStrPrint(
+    "%9.6f %9.6f %9.6f\n"
+    "%9.6f %9.6f %9.6f\n"
+    "%9.6f %9.6f %9.6f\n"
+    " %c: toggle debug",
+    f*glbl_r[0][0], f*glbl_r[0][1], f*glbl_r[0][2],
+    f*glbl_r[1][0], f*glbl_r[1][1], f*glbl_r[1][2],
+    f*glbl_r[2][0], f*glbl_r[2][1], f*glbl_r[2][2],
+    CH_DBG);
+
+GrPrint(dc, 0, 90, debug);
 $ID,-2$}
 $ID,-2$}
 
 //================================
 
-U0 StlDraw(CTask* ct, CDC* dc)
+U0 StlDraw(CTask* ct, CDC* dc)
 {$ID,2$
 I64 *old_r=dc->r;
 dc->thick=1;
@@ -135,7 +148,7 @@ $ID,-2$}
 $ID,-2$}
 
 // Print help last so it's on top
-GrPrintHelp(dc);
+GrPrintText(ct, dc);
 
 dc->r=old_r;
 $ID,-2$}
@@ -236,7 +249,7 @@ xr  = x; yr  = y;
 xr0 = x; yr0 = y;
 
 // translation (pan) state
-tx0 = 0;
+tx0 = 0;
 ty0 = 0;
 tx = tx0;
 ty = ty0;
@@ -260,20 +273,19 @@ I64 ch = 0;
 while (!(ch = ScanChar)
     ||  (ch != CH_SHIFT_ESC && ch != CH_ESC))
 {$ID,2$
-// TODO: make const chars for these and help
-if (ch == 'w')
+if (ch == CH_WIRE)
 {$ID,2$
 glbl_view_mode = VIEW_MODE_WIRE;
 $ID,-2$}
-else if (ch == 's')
+else if (ch == CH_SURF)
 {$ID,2$
 glbl_view_mode = VIEW_MODE_SURF;
 $ID,-2$}
-else if (ch == 'h')
+else if (ch == CH_HELP)
 {$ID,2$
 glbl_show_help = !glbl_show_help;
 $ID,-2$}
-else if (ch == 'd')
+else if (ch == CH_DBG)
 {$ID,2$
 glbl_show_dbg = !glbl_show_dbg;
 $ID,-2$}
