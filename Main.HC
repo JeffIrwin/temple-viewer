@@ -13,8 +13,10 @@ $WW,1$/* Fixed-point scaling constant.  This allows smooth panning even when zoo
 
 // Keyboard shortcuts
 #define CH_HELP 'h'
+#define CH_RROT 'r'
 #define CH_SURF 's'
 #define CH_WIRE 'w'
+#define CH_ZFIT 'z'
 #define CH_DBG  'd'
 
 /* Global settings */
@@ -58,7 +60,7 @@ U0 GrPrintText(CTask* ct, CDC* dc)
 dc->color = BLACK;
 
 /* TODO: define version elsewhere */
-U8* me = "temple-viewer 0.0.1";
+U8* me = "temple-viewer 0.2.0";
 I64 x = ct->pix_width - (StrLen(me)+1) * FONT_WIDTH;
 GrPrint(dc, x, 0, me);
 
@@ -66,15 +68,19 @@ if (glbl_show_help)
 {$ID,2$
 U8* help = MStrPrint(
     "%c: toggle help\n"
+    "%c: reset rotation\n"
     "%c: surface\n"
     "%c: wireframe\n"
+    "%c: zoom fit\n"
     "LMB: rotate\n"
     "RMB: pan\n"
     "Scroll: zoom\n"
     "Esc: exit",
     CH_HELP,
+    CH_RROT,
     CH_SURF,
-    CH_WIRE);
+    CH_WIRE,
+    CH_ZFIT);
 
 GrPrint(dc, FONT_WIDTH, 0, help);
 $ID,-2$}
@@ -99,7 +105,7 @@ $ID,-2$}
 
 //================================
 
-U0 StlDraw(CTask* ct, CDC* dc)
+U0 StlDraw(CTask* ct, CDC* dc)
 {$ID,2$
 I64 *old_r=dc->r;
 dc->thick=1;
@@ -176,6 +182,18 @@ I64 r2[16];
 
 return Mat4x4Equ(dst,
     Mat4x4MulMat4x4Equ(r2, r, dst));
+$ID,-2$}
+
+I64* Mat4x4ZUp(I64* m)
+{$ID,2$
+// Set m to z up, x right
+I64 r[4][4];
+MemSet(r, 0, sizeof(r));
+r[0][0] =  GR_SCALE;
+r[1][2] = -GR_SCALE;
+r[2][1] =  GR_SCALE;
+r[3][3] =  GR_SCALE;
+return Mat4x4Equ(m, r);
 $ID,-2$}
 
 I64* Mat4x4Rot(I64* m, F64 x, F64 y, F64 z, F64 theta)
@@ -260,12 +278,7 @@ zoom = 1.0;
 I64 r[4][4], r0[4][4];
 
 // Initialize to z up
-MemSet(r, 0, sizeof(r));
-r[0][0] =  GR_SCALE;
-r[1][2] = -GR_SCALE;
-r[2][1] =  GR_SCALE;
-r[3][3] =  GR_SCALE;
-
+Mat4x4ZUp(r);
 Mat4x4Equ(r0, r);
 
 Fs->draw_it = &StlDraw;
@@ -290,7 +303,25 @@ else if (ch == CH_DBG)
 glbl_show_dbg = !glbl_show_dbg;
 $ID,-2$}
 
-/* TODO: add an option to reset/center view, and a key/mouse combo for z rotation */
+if (ch == CH_RROT)
+{$ID,2$
+/* Reset rotation (and zoom fit) */
+Mat4x4ZUp(r);
+Mat4x4Equ(r0, r);
+$ID,-2$}
+if (ch == CH_ZFIT || ch == CH_RROT)
+{$ID,2$
+/* Zoom to fit data */
+z0 = ms.pos.z;
+z = z0;
+
+tx0 = 0;
+ty0 = 0;
+tx = tx0;
+ty = ty0;
+$ID,-2$}
+
+/* TODO: add a key/mouse combo for z rotation */
 
 /* Track right-button drag for translations.  No middle-button in TempleOS? */
 if (ms.rb)

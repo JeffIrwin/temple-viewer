@@ -1,4 +1,4 @@
-Cd(__DIR__);;
+$WW,1$Cd(__DIR__);;
 #include "Load"
 
 U0 ViewerMain()
@@ -23,5 +23,5 @@ f = "./DATA/BUNNY.STL";
 StlView(f);
 
 $ID,-2$}
-
+
 ViewerMain();
