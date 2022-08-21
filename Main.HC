@@ -17,7 +17,7 @@ Bool glbl_show_help = TRUE;
 Bool glbl_show_dbg  = FALSE;
 
 $WW,1$/* Fixed-point scaling constant.  This allows smooth panning even when zoomed in very close, instead of discrete panning of 1 pixel unit from initial zoom level */
-#define FPC 10000
+#define FPC 0x4000
 
 //================================
 
@@ -45,6 +45,47 @@ $ID,-2$}
 
 //================================
 
+U0 GrPrintHelp(CDC* dc)
+{$ID,2$
+dc->color = BLACK;
+
+if (glbl_show_help)
+{$ID,2$
+U8* help =
+    "h: toggle help\n"
+    "s: surface\n"
+    "w: wireframe\n"
+    "LMB: rotate\n"
+    "RMB: pan\n"
+    "Scroll: zoom\n"
+    "Esc: exit";
+
+GrPrint(dc, FONT_WIDTH, 0, help);
+$ID,-2$}
+
+if (glbl_show_dbg)
+{$ID,2$
+F64 f = 1.0 * FPC / GR_SCALE;
+
+/* Apparently there's a limit to the number of print args, so you can't do this all at once */
+I64 y0 = 90, dy = 10;
+GrPrint(dc, 0, y0, "%9.6f %9.6f %9.6f",
+f*glbl_r[0][0],
+f*glbl_r[0][1],
+f*glbl_r[0][2]);
+GrPrint(dc, 0, y0+dy, "%9.6f %9.6f %9.6f",
+f*glbl_r[1][0],
+f*glbl_r[1][1],
+f*glbl_r[1][2]);
+GrPrint(dc, 0, y0+2*dy, "%9.6f %9.6f %9.6f", f*glbl_r[2][0],
+f*glbl_r[2][1],
+f*glbl_r[2][2]);
+GrPrint(dc, 0, y0+3*dy, " d: toggle debug");
+$ID,-2$}
+$ID,-2$}
+
+//================================
+
 U0 StlDraw(CTask* ct, CDC* dc)
 {$ID,2$
 I64 *old_r=dc->r;
@@ -64,40 +105,7 @@ dc->flags|=DCF_TRANSFORMATION;
 /* The depth buffer draws closer triangles on top instead of drawing the last triangle in the STL on top */
 DCDepthBufAlloc(dc);
 
-// TODO: refactor into another function
-if (glbl_show_dbg)
-{$ID,2$
-// TODO: multiply by FPC or change format
-
-/* Apparently there's a limit to the number of pritn args, so you can't do this all at once */
-I64 y0 = 90, dy = 10;
-GrPrint(dc, 0, y0, "%9.6f %9.6f %9.6f",
-1.0*glbl_r[0][0]/GR_SCALE,
-1.0*glbl_r[0][1]/GR_SCALE,
-1.0*glbl_r[0][2]/GR_SCALE);
-GrPrint(dc, 0, y0+dy, "%9.6f %9.6f %9.6f",
-1.0*glbl_r[1][0]/GR_SCALE,
-1.0*glbl_r[1][1]/GR_SCALE,
-1.0*glbl_r[1][2]/GR_SCALE);
-GrPrint(dc, 0, y0+2*dy, "%9.6f %9.6f %9.6f", 1.0*glbl_r[2][0]/GR_SCALE,
-1.0*glbl_r[2][1]/GR_SCALE,
-1.0*glbl_r[2][2]/GR_SCALE);
-GrPrint(dc, 0, y0+3*dy, " d: toggle debug");
-$ID,-2$}
-
 DCMat4x4Set(dc,glbl_r); /*This assigns to dc->r and sets r_norm.*/
-
-U8* help =
-    "h: toggle help\n"
-    "s: surface\n"
-    "w: wireframe\n"
-    "LMB: rotate\n"
-    "RMB: pan\n"
-    "Scroll: zoom\n"
-    "Esc: exit";
-
-if (glbl_show_help)
-  GrPrint(dc, FONT_WIDTH, 0, help);
 
 Stl* s = glbl_stl;
 
@@ -125,6 +133,9 @@ else /*if (glbl_view_mode == VIEW_MODE_SURF)*/
 FillTri(dc, &(s->v[a]), &(s->v[b]), &(s->v[c]), (i/9) % (COLORS_NUM-1));
 $ID,-2$}
 $ID,-2$}
+
+// Print help last so it's on top
+GrPrintHelp(dc);
 
 dc->r=old_r;
 $ID,-2$}
@@ -225,7 +236,7 @@ xr  = x; yr  = y;
 xr0 = x; yr0 = y;
 
 // translation (pan) state
-tx0 = 0;
+tx0 = 0;
 ty0 = 0;
 tx = tx0;
 ty = ty0;
@@ -339,7 +350,7 @@ SettingsPop;$ID,2$
 $ID,-2$glbl_stl = NULL;
 
 //"glbl_r[10] = %d\n", glbl_r[2][2];
-//"GR_SCALE = %d\n", GR_SCALE;
+//"GR_SCALE = %d\n", GR_SCALE;
 
 return 0;
 $ID,-2$}
