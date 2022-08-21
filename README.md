@@ -36,14 +36,16 @@ your Windows host:  http://www.ltr-data.se/opencode.html/
 
 ## Running this viewer
 
-After getting TempleOS running, copy [MAIN.HC](MAIN.HC) onto TempleOS.  Include it, then
-view one of the provided STLs or any binary or ASCII STL:
+After getting TempleOS running, copy all of the `*.HC` files from the top-level
+of this repository onto TempleOS.  Include [`Load.HC`](Load.HC), then
+run `StlView()` to view one of the provided STLs or any binary or ASCII STL:
 
+    #include "/path/to/temple-viewer/Load"
     StlView("/path/to/my/file.stl");
 
 Also checkout the video demo:  https://www.youtube.com/watch?v=tHBgW9h7iKI
 
 ### STL files
 
-STL files can be downloaded from thingiverse.com or similar websites.
+STL files can be downloaded from [thingiverse.com](thingiverse.com) or similar websites.
 
