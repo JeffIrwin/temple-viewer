@@ -47,5 +47,5 @@ Also checkout the video demo:  https://www.youtube.com/watch?v=tHBgW9h7iKI
 
 ### STL files
 
-STL files can be downloaded from [thingiverse.com](thingiverse.com) or similar websites.
+A few STL files are provided in the [`DATA`](DATA) dir here.  Other STL files can be downloaded from [thingiverse.com](https://www.thingiverse.com/) or similar websites.
 
