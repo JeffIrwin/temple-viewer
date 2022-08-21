@@ -339,7 +339,7 @@ SettingsPop;$ID,2$
 $ID,-2$glbl_stl = NULL;
 
 //"glbl_r[10] = %d\n", glbl_r[2][2];
-//"GR_SCALE = %d\n", GR_SCALE;
+//"GR_SCALE = %d\n", GR_SCALE;
 
 return 0;
 $ID,-2$}
@@ -372,6 +372,6 @@ StlFree(&s);
 
 return io;
 $ID,-2$}
-
+
 //================================
 $ID,-2$

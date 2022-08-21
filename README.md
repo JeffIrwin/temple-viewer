@@ -46,6 +46,9 @@ run `StlView()` to view one of the provided STLs or any binary or ASCII STL:
 Alternatively, use [`Run.HC`](Run.HC), which just executes the two lines above
 with hard-coded paths to provided STL files.
 
+If Windows makes all the filenames uppercase, run [`FixCase.HC`](FixCase.HC) to
+rename them back to the expected case.
+
 Also checkout the video demo:  https://www.youtube.com/watch?v=tHBgW9h7iKI
 
 ### STL files

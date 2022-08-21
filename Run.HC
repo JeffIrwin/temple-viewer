@@ -9,13 +9,13 @@ U0 ViewerMain()
 $WW,1$$WW,1$U8* f;
 
 f = "./DATA/ASCII.STL";
-f = "./DATA/BUNNY.STL";
+//f = "./DATA/BUNNY.STL";
 //f = "./DATA/DODECA.STL";
 //f = "./DATA/PIKACHU.STL";
 //f = "./DATA/XYZCUBE.STL";
 
 // Big
-//f = "./DATA/utahteapot.stl";
+//f = "./DATA/utahteapot.stl";
 
 // Very big
 //f = "./DATA/BENCHY3D.STL";
