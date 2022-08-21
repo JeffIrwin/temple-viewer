@@ -43,6 +43,9 @@ run `StlView()` to view one of the provided STLs or any binary or ASCII STL:
     #include "/path/to/temple-viewer/Load"
     StlView("/path/to/my/file.stl");
 
+Alternatively, use [`Run.HC`](Run.HC), which just executes the two lines above
+with hard-coded paths to provided STL files.
+
 Also checkout the video demo:  https://www.youtube.com/watch?v=tHBgW9h7iKI
 
 ### STL files
