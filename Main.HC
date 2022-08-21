@@ -466,11 +466,10 @@ $ID,-2$}
 I64 glbl_r[4][4];
 Stl* glbl_stl = NULL;
 
-I64 glbl_view_mode;
 #define VIEW_MODE_WIRE 0
 #define VIEW_MODE_SURF 1
 
-glbl_view_mode = VIEW_MODE_SURF; /* default */
+I64 glbl_view_mode = VIEW_MODE_SURF; /* default */
 
 Bool glbl_show_help = TRUE;
 Bool glbl_show_dbg  = FALSE;
@@ -553,7 +552,7 @@ U8* help =
     "LMB: rotate\n"
     "RMB: pan\n"
     "Scroll: zoom\n"
-    "Esc: exit";
+    "Esc: exit";
 
 if (glbl_show_help)
   GrPrint(dc, FONT_WIDTH, 0, help);
@@ -592,7 +591,7 @@ $ID,-2$}
 
 /* Extensions of built-in rotation matrix functions
 
-  As is common in graphics, Terry uses augmented 4x4 matrices to store rotations, translations, and scaling in a single matrix.  The upper-left 3x3 is the rotation matrix, the right 3x1 column is the translation, and the lower-right element is the scaling.
+  As is common in graphics, Terry uses augmented 4x4 matrices to store rotations, translations, and scaling in a single matrix.  The upper-left 3x3 is the rotation matrix, the upper-right 3x1 column is the translation, and the lower-right element is the scaling.
 
   Depending on the degree of pointer indirection, the matrix is either a rank-2 array of size 4x4 or rank-1 size 16:
 
@@ -615,7 +614,7 @@ $ID,-2$}
 
 I64* Mat4x4Rot(I64* m, F64 x, F64 y, F64 z, F64 theta)
 {$ID,2$
-/* General axis-angle rotation about a vector [x,y,z] by angle theta.  Vector must be normalized! */
+/* General axis-angle rotation about an axis vector [x,y,z] by angle theta.  Vector must be normalized! */
 
 /* Skip identity/singular case. Caller likely set vector to garbage */
 if (theta == 0) return m;
@@ -778,7 +777,7 @@ $ID,-2$}
 
 Mat4x4IdentEqu(glbl_r);
 
-/* Translate center of model to origin */
+/* Translate center of model to origin (window center) */
 Mat4x4TranslationEqu(glbl_r,
     -s->cx, -s->cy, -s->cz);
 
@@ -788,7 +787,7 @@ Mat4x4Mul(glbl_r, r);
 /* Apply mouse pan after rotation so it pans in screen XY coordinate system (not model XY). */
 Mat4x4TranslationAdd(glbl_r, FPC*tx, FPC*ty, 0);
 
-/* Use Exp so zoom is always positive.  Zoom is towards screen center, not cursor or model */
+/* Use Exp so zoom is always positive.  Zoom is towards window center, not cursor or model */
 zoom = Exp(0.05 * (ms.pos.z - z0));
 Mat4x4Scale(glbl_r, zoom / FPC);
 
@@ -798,7 +797,7 @@ SettingsPop;$ID,2$
 $ID,-2$glbl_stl = NULL;
 
 //"glbl_r[10] = %d\n", glbl_r[2][2];
-"GR_SCALE = %d\n", GR_SCALE;
+//"GR_SCALE = %d\n", GR_SCALE;
 
 return 0;
 $ID,-2$}
@@ -821,42 +820,17 @@ I64 win_size = MinI64(
 
 io = StlScale(0.6 * FPC * win_size / s.r, &s);
 if (io != 0) goto free;
-
 //return 0;
+
 io = StlRender(&s);
 if (io != 0) return io;
 
 free:
-StlFree(&s);
+StlFree(&s);
 
 return io;
 $ID,-2$}
 
 //================================
-
-U0 ViewerMain()
-{$ID,2$
-Cd(__DIR__);
-U8* f;
-
-// STL filename to be viewed
-
-f = "./DATA/ASCII.STL";
-f = "./DATA/BUNNY.STL";
-//f = "./DATA/DODECA.STL";
-//f = "./DATA/PIKACHU.STL";
-//f = "./DATA/XYZCUBE.STL";
-
-// Big
-//f = "./DATA/utahteapot.stl";
-
-// Very big
-//f = "./DATA/BENCHY3D.STL";
-
-StlView(f);
-
-$ID,-2$}
-
-//ViewerMain;
 
 $ID,-2$

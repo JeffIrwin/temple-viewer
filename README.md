@@ -43,3 +43,7 @@ view one of the provided STLs or any binary or ASCII STL:
 
 Also checkout the video demo:  https://www.youtube.com/watch?v=tHBgW9h7iKI
 
+### STL files
+
+STL files can be downloaded from thingiverse.com or similar websites.
+

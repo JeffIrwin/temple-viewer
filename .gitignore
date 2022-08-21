@@ -2,6 +2,6 @@
 # Keep ISO and disk img here:
 scratch/
 
-# Big useless file
-DATA/benchy3d.stl
+# Other STL files that I don't want to commit.  Some are quite large
+DATA/*.stl
 
