@@ -5,6 +5,10 @@ $ID,2$#include "StlIo"
 
 /* Constants */
 
+#define TVMAJOR 0
+#define TVMINOR 3
+#define TVPATCH 0
+
 #define VIEW_MODE_WIRE 0
 #define VIEW_MODE_SURF 1
 
@@ -18,6 +22,8 @@ $WW,1$/* Fixed-point scaling constant.  This allows smooth panning even when zoo
 #define CH_WIRE 'w'
 #define CH_ZFIT 'z'
 #define CH_DBG  'd'
+
+// TODO: add arrow keys for 90 degree rotations?
 
 /* Global settings */
 
@@ -59,8 +65,9 @@ U0 GrPrintText(CTask* ct, CDC* dc)
 {$ID,2$
 dc->color = BLACK;
 
-/* TODO: define version elsewhere */
-U8* me = "temple-viewer 0.2.0";
+U8* me = MStrPrint("temple-viewer %d.%d.%d",
+    TVMAJOR, TVMINOR, TVPATCH);
+
 I64 x = ct->pix_width - (StrLen(me)+1) * FONT_WIDTH;
 GrPrint(dc, x, 0, me);
 
@@ -255,10 +262,10 @@ F64 x, y, z, zoom, x0, y0, z0,
 x0 = ms.pos.x;
 y0 = ms.pos.y;
 
-// mouse left-button (lb) trackers
+// Mouse left-button (lb) trackers
 x = x0; y = y0;
 
-// scroll
+// Scroll
 z0 = ms.pos.z;
 z = z0;
 
@@ -266,7 +273,7 @@ z = z0;
 xr  = x; yr  = y;
 xr0 = x; yr0 = y;
 
-// translation (pan) state
+// Translation (pan) state
 tx0 = 0;
 ty0 = 0;
 tx = tx0;
@@ -321,7 +328,9 @@ tx = tx0;
 ty = ty0;
 $ID,-2$}
 
-/* TODO: add a key/mouse combo for z rotation */
+/* Note, RMB + CH_RROT does weird stuff */
+
+/* TODO: add a key/mouse combo for z rotation.  ParaView uses Shift-LMB with the angular cursor position wrt window center */
 
 /* Track right-button drag for translations.  No middle-button in TempleOS? */
 if (ms.rb)
@@ -415,7 +424,7 @@ I64 win_size = MinI64(
     Fs->pix_height);
 
 io = StlScale(0.6 * FPC * win_size / s.r, &s);
-if (io != 0) goto free;
+if (io != 0) goto free;
 //return 0;
 
 io = StlRender(&s);
