@@ -5,6 +5,6 @@ $WW,1$/* CIA agents bankrolled by Microsoft may try to make all your filenames u
 Move("FILE.HC" , "File.HC" );
 Move("LOAD.HC" , "Load.HC" );
 Move("MAIN.HC" , "Main.HC" );
+Move("MATH.HC" , "Math.HC" );
 Move("RUN.HC"  , "Run.HC"  );
 Move("STLIO.HC", "StlIo.HC");
-

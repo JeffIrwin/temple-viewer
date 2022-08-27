@@ -7,7 +7,7 @@ $ID,2$#include "Math"
 /* Constants */
 
 #define TVMAJOR 0
-#define TVMINOR 5
+#define TVMINOR 6
 #define TVPATCH 0
 
 #define VIEW_MODE_WIRE 0
@@ -82,6 +82,7 @@ U8* me = MStrPrint("temple-viewer %d.%d.%d",
 I64 x = ct->pix_width - (StrLen(me)+1) * FONT_WIDTH;
 GrPrint(dc, x, 0, me);
 
+I64 nl = 0;
 if (glbl_show_help)
 {$ID,2$
 U8* help = MStrPrint(
@@ -90,17 +91,27 @@ U8* help = MStrPrint(
     "%c: surface\n"
     "%c: wireframe\n"
     "%c: zoom fit\n"
+    "\n"
     "LMB: rotate\n"
     "RMB: pan\n"
     "Scroll: zoom\n"
-    "Esc: exit",
+    "\n"
+    "Arrow keys: rotate 30 degrees\n"
+    "Shift+LMB/Arrow: z rotate\n"
+    "\n"
+    "Esc: exit\n",
     KEY_HELP,
     KEY_RROT,
     KEY_SURF,
     KEY_WIRE,
     KEY_ZFIT);
-/* TODO: help for arrow keys, z rotation.  Maybe cycle between 3 levels instead of toggling 2 levels of help? */
+
+/* Maybe cycle between 3 levels instead of toggling 2 levels of help? */
+
 GrPrint(dc, FONT_WIDTH, 0, help);
+
+/* Count lines to place debug text below.  Alternatively, help and debug could be catted into a single string a printed with one GrPrint() call */
+nl = StrOcc(help, '\n') + 2;
 $ID,-2$}
 
 if (glbl_show_dbg)
@@ -111,14 +122,13 @@ U8* debug = MStrPrint(
     " %c: toggle debug\n\n"
     "%9.6f %9.6f %9.6f\n"
     "%9.6f %9.6f %9.6f\n"
-    "%9.6f %9.6f %9.6f",
+    "%9.6f %9.6f %9.6f\n",
     KEY_DBG,
     f*glbl_r[0][0], f*glbl_r[0][1], f*glbl_r[0][2],
     f*glbl_r[1][0], f*glbl_r[1][1], f*glbl_r[1][2],
     f*glbl_r[2][0], f*glbl_r[2][1], f*glbl_r[2][2]);
 
-/* TODO: count lines in help and auto set y */
-GrPrint(dc, 0, 90, debug);
+GrPrint(dc, 0, FONT_HEIGHT * nl, debug);
 $ID,-2$}
 $ID,-2$}
 
@@ -167,14 +177,33 @@ $WW,1$DCMat4x4Set(dc, glbl_ra);
 F64 r;
 r = 50.0; // pixel units
 
-/* TODO: print "xyz" text at arrow tips.  Try creating 3D points offset from tips slihtly, then calling dc->transform to get 2D screen coords.  See /Adam/Gr/GrPrimatives.HC.Z */
-
 dc->color = RED;
 GrArrow3(dc, 0, 0, 0, r, 0, 0);
 dc->color = YELLOW;
 GrArrow3(dc, 0, 0, 0, 0, r, 0);
 dc->color = GREEN;
 GrArrow3(dc, 0, 0, 0, 0, 0, r);
+
+I64 x, y, z;
+F64 r2 = 0.9 * r, dr = 0.2 * r;
+dc->color = BLACK;
+
+/* Print text labels offset from tips */
+
+x = r2; y = dr; z = 0;
+
+/* Transform {x,y,z} from 3D to 2D screen coords */
+(*dc->transform)(dc,&x,&y,&z);
+
+GrPrint(dc, x, y, "x");
+
+x = 0; y = r2; z = dr;
+(*dc->transform)(dc,&x,&y,&z);
+GrPrint(dc, x, y, "y");
+
+x = dr; y = 0; z = r2;
+(*dc->transform)(dc,&x,&y,&z);
+GrPrint(dc, x, y, "z");
 $ID,-2$}
 
 //================================
@@ -339,7 +368,7 @@ tx = tx0;
 ty = ty0;
 $ID,-2$}
 
-/* Note, RMB + KEY_RROT does weird stuff */
+/* Note, RMB + KEY_RROT does weird stuff.  If/else chains could be changed to prioritize one and ignore the other */
 
 /* Track right-button drag for translations.  No middle-button in TempleOS? */
 if (ms.rb)
@@ -370,6 +399,7 @@ if (shift_lb)
 x = ms.pos.x;
 y = ms.pos.y;
 
+/* Window center.  Alternatively, we could get model center and transform() it to screen coords to use as z rotation center */
 F64 cx = Fs->pix_left + Fs->pix_width  / 2;
 F64 cy = Fs->pix_top  + Fs->pix_height / 2;
 
@@ -424,13 +454,15 @@ Mat4x4Mul(glbl_ra, r);
 
 /* Apply mouse pan after rotation so it pans in screen XY coordinate system (not model XY). */
 Mat4x4TranslationAdd(glbl_r, FPC*tx, FPC*ty, 0);
+
+/* Put axes in lower-left corner.  Put on top with a big z translation */
 Mat4x4TranslationAdd(glbl_ra,
     -0.41 * Fs->pix_width,
-     0.38 * Fs->pix_height, 0);
-// ^ TODO: add big Z trans so axes are on top
+     0.38 * Fs->pix_height, -0.9 * GR_Z_ALL);
 
-/* Use Exp so zoom is always positive.  Zoom is towards window center, not cursor or model */
-zoom = Exp(0.05 * (ms.pos.z - z0));
+/* Use Exp so zoom is always positive.  Zoom is towards window center, not cursor or model.  Clamp belowe 10k bc stuff gets laggy at high zoom */
+zoom = Clamp(Exp(0.05 * (ms.pos.z - z0)),
+    -1.0, 10000.0);
 Mat4x4Scale(glbl_r, zoom / FPC);
 
 Sleep(20);
@@ -449,7 +481,7 @@ $ID,-2$}
 
 I64 StlView(U8* fstl)
 {$ID,2$
-/* Read and graphically render an STL file */
+/* Read and graphically render an STL file */
 
 Stl s;
 I64 io = 0;
