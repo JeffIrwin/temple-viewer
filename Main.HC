@@ -1,12 +1,13 @@
 
-$ID,2$#include "StlIo"
+$ID,2$#include "Math"
+#include "StlIo"
 
 //================================
 
 /* Constants */
 
 #define TVMAJOR 0
-#define TVMINOR 4
+#define TVMINOR 5
 #define TVPATCH 0
 
 #define VIEW_MODE_WIRE 0
@@ -17,14 +18,18 @@ $WW,1$/* Fixed-point scaling constant.  This allows smooth panning even when zoo
 
 // Keyboard shortcuts
 
-#define CH_HELP 'h'
-#define CH_RROT 'r'
-#define CH_SURF 's'
-#define CH_WIRE 'w'
-#define CH_ZFIT 'z'
-#define CH_DBG  'd'
-
-/* SC_CURSOR_UP/DOWN/LEFT/RIGHT are already defined, although we could still add another level of abstraction */
+#define KEY_HELP  'h'
+#define KEY_RROT  'r'
+#define KEY_SURF  's'
+#define KEY_WIRE  'w'
+#define KEY_ZFIT  'z'
+#define KEY_DBG   'd'
+#define KEY_UP    SC_CURSOR_UP
+#define KEY_DOWN  SC_CURSOR_DOWN
+#define KEY_LEFT  SC_CURSOR_LEFT
+#define KEY_RIGHT SC_CURSOR_RIGHT
+#define KEY_ESC   CH_ESC
+#define KEY_SHESC CH_SHIFT_ESC
 
 /* Global settings */
 
@@ -89,11 +94,11 @@ U8* help = MStrPrint(
     "RMB: pan\n"
     "Scroll: zoom\n"
     "Esc: exit",
-    CH_HELP,
-    CH_RROT,
-    CH_SURF,
-    CH_WIRE,
-    CH_ZFIT);
+    KEY_HELP,
+    KEY_RROT,
+    KEY_SURF,
+    KEY_WIRE,
+    KEY_ZFIT);
 /* TODO: help for arrow keys, z rotation.  Maybe cycle between 3 levels instead of toggling 2 levels of help? */
 GrPrint(dc, FONT_WIDTH, 0, help);
 $ID,-2$}
@@ -107,7 +112,7 @@ U8* debug = MStrPrint(
     "%9.6f %9.6f %9.6f\n"
     "%9.6f %9.6f %9.6f\n"
     "%9.6f %9.6f %9.6f",
-    CH_DBG,
+    KEY_DBG,
     f*glbl_r[0][0], f*glbl_r[0][1], f*glbl_r[0][2],
     f*glbl_r[1][0], f*glbl_r[1][1], f*glbl_r[1][2],
     f*glbl_r[2][0], f*glbl_r[2][1], f*glbl_r[2][2]);
@@ -206,106 +211,6 @@ $ID,-2$}
 
 //================================
 
-// TODO: refactor into Math.HC
-
-/* Extensions of built-in rotation matrix functions
-
-  As is common in graphics, Terry uses augmented 4x4 matrices to store rotations, translations, and scaling in a single matrix.  The upper-left 3x3 is the rotation matrix, the upper-right 3x1 column is the translation, and the lower-right element is the scaling.
-
-  Depending on the degree of pointer indirection, the matrix is either a rank-2 array of size 4x4 or rank-1 size 16:
-
-  [  0  1  2  3 ]
-  [  4  5  6  7 ]
-  [  8  9 10 11 ]
-  [ 12 13 14 15 ]
-*/
-
-I64* Mat4x4Mul(I64* dst, I64* r)
-{$ID,2$
-/* Wrapper for Mat4x4MulMat4x4Equ without the extra dummy arg.  dst is an in/out arg!  Conceptually, the transform r is applied after input dst.  Output is stored in dst (and returned per Terry's convention) */
-
-// Dummy for storage during mul
-I64 r2[16];
-
-return Mat4x4Equ(dst,
-    Mat4x4MulMat4x4Equ(r2, r, dst));
-$ID,-2$}
-
-I64* Mat4x4ZUp(I64* m)
-{$ID,2$
-// Set m to z up, x right
-I64 r[4][4];
-MemSet(r, 0, sizeof(r));
-r[0][0] =  GR_SCALE;
-r[1][2] = -GR_SCALE;
-r[2][1] =  GR_SCALE;
-r[3][3] =  GR_SCALE;
-return Mat4x4Equ(m, r);
-$ID,-2$}
-
-I64* Mat4x4Rot(I64* m, F64 x, F64 y, F64 z, F64 theta)
-{$ID,2$
-/* General axis-angle rotation about an axis vector [x,y,z] by angle theta.  Vector must be normalized! */
-
-/* Skip identity/singular case. Caller likely set vector to garbage */
-if (theta == 0) return m;
-
-F64 c = Cos(theta);
-F64 s = Sin(theta);
-F64 t = 1 - c;
-
-// fixed-point
-c *= GR_SCALE;
-s *= GR_SCALE;
-t *= GR_SCALE;
-
-I64 r[16];
-MemSet(r, 0, sizeof(r));
-
-/* Ref: wikipedia 
- *
- *     https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
- *
- */
-r[ 0] = c + x*x*t;
-r[ 1] = x*y*t - z*s;
-r[ 2] = z*x*t + y*s;
-
-r[ 4] = x*y*t + z*s;
-r[ 5] = c + y*y*t;
-r[ 6] = y*z*t - x*s;
-
-r[ 8] = z*x*t - y*s;
-r[ 9] = y*z*t + x*s;
-r[10] = c + z*z*t;
-
-r[15] = GR_SCALE;
-
-return Mat4x4Mul(m, r);
-$ID,-2$}
-
-//================================
-
-F64 ATan2(F64 y, F64 x)
-{$ID,2$
-F64 a = inf; // no NaN in TOS?
-if (x > 0)
-  a = ATan(y/x);
-else if (x < 0 && y >= 0)
-  a = ATan(y/x) + pi;
-else if (x < 0 && y < 0)
-  a = ATan(y/x) - pi;
-else if (x == 0 && y > 0)
-  a =  pi / 2;
-else if (x == 0 && y < 0)
-  a = -pi / 2;
-// undefined if both are 0
-
-return a;
-$ID,-2$}
-
-//================================
-
 I64 StlRender(Stl* s)
 {$ID,2$
 /* Setup the canvas, start the loop to handle mouse/keyboard events, and draw the scene */
@@ -356,7 +261,7 @@ Mat4x4Equ(r0, r);
 Fs->draw_it = &SceneDraw;
 I64 ch = 0, sc;
 
-while (ch != CH_SHIFT_ESC && ch != CH_ESC)
+while (ch != KEY_SHESC && ch != KEY_ESC)
 {$ID,2$
 /* Most normal characters (i.e. ASCII) are scanned as ch, while special keys like Ctrl, arrow keys, etc. are "scan codes" sc */
 ScanKey(&ch, &sc);
@@ -365,64 +270,64 @@ U64 s0 = sc.u8[0]; // only this byte matters
 /* Is the shift key down?  See "/Adam/WinMgr.HC.Z" which does something similar with SCF_CTRL */
 Bool shift = kbd.scan_code&SCF_SHIFT;
 
-if (ch == CH_WIRE)
+if (ch == KEY_WIRE)
 {$ID,2$
 glbl_view_mode = VIEW_MODE_WIRE;
 $ID,-2$}
-else if (ch == CH_SURF)
+else if (ch == KEY_SURF)
 {$ID,2$
 glbl_view_mode = VIEW_MODE_SURF;
 $ID,-2$}
-else if (ch == CH_HELP)
+else if (ch == KEY_HELP)
 {$ID,2$
 glbl_show_help = !glbl_show_help;
 $ID,-2$}
-else if (ch == CH_DBG)
+else if (ch == KEY_DBG)
 {$ID,2$
 glbl_show_dbg = !glbl_show_dbg;
 $ID,-2$}
 else if (shift &&
-    (s0 == SC_CURSOR_LEFT ||
-     s0 == SC_CURSOR_DOWN))
+    (s0 == KEY_LEFT ||
+     s0 == KEY_DOWN))
 {$ID,2$
 Mat4x4Equ(r, r0); // dst, src
 Mat4x4RotZ(r, -pi/6);
 $ID,-2$}
 else if (shift &&
-    (s0 == SC_CURSOR_RIGHT ||
-     s0 == SC_CURSOR_UP))
+    (s0 == KEY_RIGHT ||
+     s0 == KEY_UP))
 {$ID,2$
 Mat4x4Equ(r, r0);
 Mat4x4RotZ(r,  pi/6);
 $ID,-2$}
-else if (s0 == SC_CURSOR_UP)
+else if (s0 == KEY_UP)
 {$ID,2$
 Mat4x4Equ(r, r0);
 Mat4x4RotX(r, -pi/6);
 $ID,-2$}
-else if (s0 == SC_CURSOR_DOWN)
+else if (s0 == KEY_DOWN)
 {$ID,2$
 Mat4x4Equ(r, r0);
 Mat4x4RotX(r,  pi/6);
 $ID,-2$}
-else if (s0 == SC_CURSOR_RIGHT)
+else if (s0 == KEY_RIGHT)
 {$ID,2$
 Mat4x4Equ(r, r0);
 Mat4x4RotY(r, -pi/6);
 $ID,-2$}
-else if (s0 == SC_CURSOR_LEFT)
+else if (s0 == KEY_LEFT)
 {$ID,2$
 Mat4x4Equ(r, r0);
 Mat4x4RotY(r,  pi/6);
 $ID,-2$}
 
-if (ch == CH_RROT)
+if (ch == KEY_RROT)
 {$ID,2$
 /* Reset rotation (and zoom fit) */
 Mat4x4ZUp(r);
 Mat4x4Equ(r0, r);
 $ID,-2$}
-if (ch == CH_ZFIT || ch == CH_RROT)
+if (ch == KEY_ZFIT || ch == KEY_RROT)
 {$ID,2$
 /* Zoom to fit data */
 z0 = ms.pos.z;
@@ -434,7 +339,7 @@ tx = tx0;
 ty = ty0;
 $ID,-2$}
 
-/* Note, RMB + CH_RROT does weird stuff */
+/* Note, RMB + KEY_RROT does weird stuff */
 
 /* Track right-button drag for translations.  No middle-button in TempleOS? */
 if (ms.rb)
@@ -570,4 +475,4 @@ return io;
 $ID,-2$}
 
 //================================
-$ID,-2$
+$ID,-2$
