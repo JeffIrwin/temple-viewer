@@ -6,7 +6,7 @@ $ID,2$#include "StlIo"
 /* Constants */
 
 #define TVMAJOR 0
-#define TVMINOR 3
+#define TVMINOR 4
 #define TVPATCH 0
 
 #define VIEW_MODE_WIRE 0
@@ -16,6 +16,7 @@ $WW,1$/* Fixed-point scaling constant.  This allows smooth panning even when zoo
 #define FPC 0x4000
 
 // Keyboard shortcuts
+
 #define CH_HELP 'h'
 #define CH_RROT 'r'
 #define CH_SURF 's'
@@ -23,11 +24,16 @@ $WW,1$/* Fixed-point scaling constant.  This allows smooth panning even when zoo
 #define CH_ZFIT 'z'
 #define CH_DBG  'd'
 
-// TODO: add arrow keys for 90 degree rotations?
+/* SC_CURSOR_UP/DOWN/LEFT/RIGHT are already defined, although we could still add another level of abstraction */
 
 /* Global settings */
 
+// Model rotation matrix
 I64 glbl_r[4][4];
+
+// Axes rotation matrix (no panning or zooming)
+I64 glbl_ra[4][4];
+
 Stl* glbl_stl = NULL;
 
 I64 glbl_view_mode = VIEW_MODE_SURF; /* default */
@@ -88,7 +94,7 @@ U8* help = MStrPrint(
     CH_SURF,
     CH_WIRE,
     CH_ZFIT);
-
+/* TODO: help for arrow keys, z rotation.  Maybe cycle between 3 levels instead of toggling 2 levels of help? */
 GrPrint(dc, FONT_WIDTH, 0, help);
 $ID,-2$}
 
@@ -97,23 +103,81 @@ if (glbl_show_dbg)
 F64 f = 1.0 * FPC / GR_SCALE;
 
 U8* debug = MStrPrint(
+    " %c: toggle debug\n\n"
     "%9.6f %9.6f %9.6f\n"
     "%9.6f %9.6f %9.6f\n"
-    "%9.6f %9.6f %9.6f\n"
-    " %c: toggle debug",
+    "%9.6f %9.6f %9.6f",
+    CH_DBG,
     f*glbl_r[0][0], f*glbl_r[0][1], f*glbl_r[0][2],
     f*glbl_r[1][0], f*glbl_r[1][1], f*glbl_r[1][2],
-    f*glbl_r[2][0], f*glbl_r[2][1], f*glbl_r[2][2],
-    CH_DBG);
+    f*glbl_r[2][0], f*glbl_r[2][1], f*glbl_r[2][2]);
 
+/* TODO: count lines in help and auto set y */
 GrPrint(dc, 0, 90, debug);
 $ID,-2$}
 $ID,-2$}
 
 //================================
 
-U0 StlDraw(CTask* ct, CDC* dc)
+U0 StlDraw(CDC* dc, Stl* s)
 {$ID,2$
+/* Draw the STL */
+
+//"StlDraw nv = %d\n", s->nv;
+
+DCMat4x4Set(dc, glbl_r); /*This assigns to dc->r and sets r_norm.*/
+
+I64 i, a, b, c;
+for (i = 0; i < 3 * s->nv; i += 9)
+{$ID,2$
+// Triangle loop
+
+// Vertex x indices
+a = i + 0;
+b = i + 3;
+c = i + 6;
+
+if (glbl_view_mode == VIEW_MODE_WIRE)
+{$ID,2$
+Line(dc, &s->v[a], &s->v[b]);
+Line(dc, &s->v[b], &s->v[c]);
+Line(dc, &s->v[c], &s->v[a]);
+$ID,-2$}
+else /*if (glbl_view_mode == VIEW_MODE_SURF)*/
+{$ID,2$
+/* TODO: experiment w/ light source and add single-color mode */
+FillTri(dc, &s->v[a], &s->v[b], &s->v[c],
+    (i/9) % (COLORS_NUM-1));
+$ID,-2$}
+$ID,-2$}
+$ID,-2$}
+
+//================================
+
+U0 AxesDraw(CDC* dc)
+{$ID,2$
+/* Draw orientation axes in the corner */
+$WW,1$DCMat4x4Set(dc, glbl_ra);
+
+F64 r;
+r = 50.0; // pixel units
+
+/* TODO: print "xyz" text at arrow tips.  Try creating 3D points offset from tips slihtly, then calling dc->transform to get 2D screen coords.  See /Adam/Gr/GrPrimatives.HC.Z */
+
+dc->color = RED;
+GrArrow3(dc, 0, 0, 0, r, 0, 0);
+dc->color = YELLOW;
+GrArrow3(dc, 0, 0, 0, 0, r, 0);
+dc->color = GREEN;
+GrArrow3(dc, 0, 0, 0, 0, 0, r);
+$ID,-2$}
+
+//================================
+
+U0 SceneDraw(CTask* ct, CDC* dc)
+{$ID,2$
+/* Draw the current frame of the whole scene, which includes the STL, help text, and coordinate axes */
+
 I64 *old_r=dc->r;
 dc->thick=1;
 dc->color=RED;
@@ -131,34 +195,8 @@ dc->flags|=DCF_TRANSFORMATION;
 /* The depth buffer draws closer triangles on top instead of drawing the last triangle in the STL on top */
 DCDepthBufAlloc(dc);
 
-DCMat4x4Set(dc,glbl_r); /*This assigns to dc->r and sets r_norm.*/
-
-Stl* s = glbl_stl;
-
-//"StlDraw nv = %d\n", s->nv;
-
-I64 i, a, b, c;
-for (i = 0; i < 3 * s->nv; i += 9)
-{$ID,2$
-// Triangle loop
-
-// Vertex x indices
-a = i + 0;
-b = i + 3;
-c = i + 6;
-
-if (glbl_view_mode == VIEW_MODE_WIRE)
-{$ID,2$
-Line(dc, &(s->v[a]), &(s->v[b]));
-Line(dc, &(s->v[b]), &(s->v[c]));
-Line(dc, &(s->v[c]), &(s->v[a]));
-$ID,-2$}
-else /*if (glbl_view_mode == VIEW_MODE_SURF)*/
-{$ID,2$
-/* TODO: experiment w/ light source and add single-color mode */
-FillTri(dc, &(s->v[a]), &(s->v[b]), &(s->v[c]), (i/9) % (COLORS_NUM-1));
-$ID,-2$}
-$ID,-2$}
+StlDraw(dc, glbl_stl);
+AxesDraw(dc);
 
 // Print help last so it's on top
 GrPrintText(ct, dc);
@@ -167,6 +205,8 @@ dc->r=old_r;
 $ID,-2$}
 
 //================================
+
+// TODO: refactor into Math.HC
 
 /* Extensions of built-in rotation matrix functions
 
@@ -246,17 +286,42 @@ $ID,-2$}
 
 //================================
 
+F64 ATan2(F64 y, F64 x)
+{$ID,2$
+F64 a = inf; // no NaN in TOS?
+if (x > 0)
+  a = ATan(y/x);
+else if (x < 0 && y >= 0)
+  a = ATan(y/x) + pi;
+else if (x < 0 && y < 0)
+  a = ATan(y/x) - pi;
+else if (x == 0 && y > 0)
+  a =  pi / 2;
+else if (x == 0 && y < 0)
+  a = -pi / 2;
+// undefined if both are 0
+
+return a;
+$ID,-2$}
+
+//================================
+
 I64 StlRender(Stl* s)
 {$ID,2$
+/* Setup the canvas, start the loop to handle mouse/keyboard events, and draw the scene */
+
+/* This is a very long function, but I can't think of a good way to refactor it without either a lot of global variables or an unwieldy singleton class for the state of keys, mouse, rotation, etc.  That may be the wrong abstraction */
+
 SettingsPush; //See $LK,"SettingsPush",A="MN:SettingsPush"$
 DocClear;
+WinMax;
 
 /* draw_it() is a callback so we cannot give it extra args.  Pass Stl pointer as a global var */
 glbl_stl = s;
 
-F64 x, y, z, zoom, x0, y0, z0,
-    xr, yr, xr0, yr0,
-    tx, ty, tx0, ty0;
+F64 x, y, z, theta, zoom, x0, y0, z0,
+    xr, yr, xr0, yr0, tx, ty, tx0, ty0;
+Bool shift_lb = FALSE, lb0 = FALSE;
 
 // Mouse position
 x0 = ms.pos.x;
@@ -288,11 +353,18 @@ I64 r[4][4], r0[4][4];
 Mat4x4ZUp(r);
 Mat4x4Equ(r0, r);
 
-Fs->draw_it = &StlDraw;
-I64 ch = 0;
-while (!(ch = ScanChar)
-    ||  (ch != CH_SHIFT_ESC && ch != CH_ESC))
+Fs->draw_it = &SceneDraw;
+I64 ch = 0, sc;
+
+while (ch != CH_SHIFT_ESC && ch != CH_ESC)
 {$ID,2$
+/* Most normal characters (i.e. ASCII) are scanned as ch, while special keys like Ctrl, arrow keys, etc. are "scan codes" sc */
+ScanKey(&ch, &sc);
+U64 s0 = sc.u8[0]; // only this byte matters
+
+/* Is the shift key down?  See "/Adam/WinMgr.HC.Z" which does something similar with SCF_CTRL */
+Bool shift = kbd.scan_code&SCF_SHIFT;
+
 if (ch == CH_WIRE)
 {$ID,2$
 glbl_view_mode = VIEW_MODE_WIRE;
@@ -308,6 +380,40 @@ $ID,-2$}
 else if (ch == CH_DBG)
 {$ID,2$
 glbl_show_dbg = !glbl_show_dbg;
+$ID,-2$}
+else if (shift &&
+    (s0 == SC_CURSOR_LEFT ||
+     s0 == SC_CURSOR_DOWN))
+{$ID,2$
+Mat4x4Equ(r, r0); // dst, src
+Mat4x4RotZ(r, -pi/6);
+$ID,-2$}
+else if (shift &&
+    (s0 == SC_CURSOR_RIGHT ||
+     s0 == SC_CURSOR_UP))
+{$ID,2$
+Mat4x4Equ(r, r0);
+Mat4x4RotZ(r,  pi/6);
+$ID,-2$}
+else if (s0 == SC_CURSOR_UP)
+{$ID,2$
+Mat4x4Equ(r, r0);
+Mat4x4RotX(r, -pi/6);
+$ID,-2$}
+else if (s0 == SC_CURSOR_DOWN)
+{$ID,2$
+Mat4x4Equ(r, r0);
+Mat4x4RotX(r,  pi/6);
+$ID,-2$}
+else if (s0 == SC_CURSOR_RIGHT)
+{$ID,2$
+Mat4x4Equ(r, r0);
+Mat4x4RotY(r, -pi/6);
+$ID,-2$}
+else if (s0 == SC_CURSOR_LEFT)
+{$ID,2$
+Mat4x4Equ(r, r0);
+Mat4x4RotY(r,  pi/6);
 $ID,-2$}
 
 if (ch == CH_RROT)
@@ -330,8 +436,6 @@ $ID,-2$}
 
 /* Note, RMB + CH_RROT does weird stuff */
 
-/* TODO: add a key/mouse combo for z rotation.  ParaView uses Shift-LMB with the angular cursor position wrt window center */
-
 /* Track right-button drag for translations.  No middle-button in TempleOS? */
 if (ms.rb)
 {$ID,2$
@@ -349,15 +453,37 @@ tx0 = tx;
 ty0 = ty;
 $ID,-2$}
 
+/* Is the shift key down at the start of LMB drag? */
+shift_lb = ms.lb 
+    && (shift_lb || (!lb0 && shift));
+lb0 = ms.lb;
+
 /* Track left-button drag for rotations */
-if (ms.lb)
+if (shift_lb)
 {$ID,2$
+/* Shift+LMB: z rotation, controlled by angular cursor position wrt window center */
 x = ms.pos.x;
 y = ms.pos.y;
 
-F64 ux, uy, theta;
+F64 cx = Fs->pix_left + Fs->pix_width  / 2;
+F64 cy = Fs->pix_top  + Fs->pix_height / 2;
 
-/* Screen-plane right-hand normal to drag direction. Dragging horizontally rotates about a vertical axis and vice-versa. */
+F64 theta0;
+theta  = ATan2(y  - cy, x  - cx);
+theta0 = ATan2(y0 - cy, x0 - cx);
+
+Mat4x4Equ(r, r0);
+Mat4x4RotZ(r, theta - theta0);
+$ID,-2$}
+else if (ms.lb)
+{$ID,2$
+/* LMB (w/o shift): free rotation */
+x = ms.pos.x;
+y = ms.pos.y;
+
+F64 ux, uy;
+
+/* Set screen-plane right-hand normal to drag direction. Dragging horizontally rotates about a vertical axis and vice-versa. */
 ux =  (y - y0);
 uy = -(x - x0);
 
@@ -380,17 +506,23 @@ y0 = ms.pos.y;
 Mat4x4Equ(r0, r); // push state
 $ID,-2$}
 
-Mat4x4IdentEqu(glbl_r);
+Mat4x4IdentEqu(glbl_r );
+Mat4x4IdentEqu(glbl_ra);
 
 /* Translate center of model to origin (window center) */
 Mat4x4TranslationEqu(glbl_r,
     -s->cx, -s->cy, -s->cz);
 
 /* Apply rotation about model center */
-Mat4x4Mul(glbl_r, r);
+Mat4x4Mul(glbl_r , r);
+Mat4x4Mul(glbl_ra, r);
 
 /* Apply mouse pan after rotation so it pans in screen XY coordinate system (not model XY). */
 Mat4x4TranslationAdd(glbl_r, FPC*tx, FPC*ty, 0);
+Mat4x4TranslationAdd(glbl_ra,
+    -0.41 * Fs->pix_width,
+     0.38 * Fs->pix_height, 0);
+// ^ TODO: add big Z trans so axes are on top
 
 /* Use Exp so zoom is always positive.  Zoom is towards window center, not cursor or model */
 zoom = Exp(0.05 * (ms.pos.z - z0));
@@ -403,6 +535,7 @@ $ID,-2$glbl_stl = NULL;
 
 //"glbl_r[10] = %d\n", glbl_r[2][2];
 //"GR_SCALE = %d\n", GR_SCALE;
+//"pix_height = %d\n", Fs->pix_height;
 
 return 0;
 $ID,-2$}
@@ -424,7 +557,7 @@ I64 win_size = MinI64(
     Fs->pix_height);
 
 io = StlScale(0.6 * FPC * win_size / s.r, &s);
-if (io != 0) goto free;
+if (io != 0) goto free;
 //return 0;
 
 io = StlRender(&s);
@@ -437,4 +570,4 @@ return io;
 $ID,-2$}
 
 //================================
-$ID,-2$
+$ID,-2$

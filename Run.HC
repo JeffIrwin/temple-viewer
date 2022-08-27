@@ -17,8 +17,8 @@ f = "./DATA/BUNNY.STL";
 // Big
 //f = "./DATA/utahteapot.stl";
 
-// Very big
-//f = "./DATA/BENCHY3D.STL";
+// Very big
+//f = "./DATA/BENCHY3D.STL";
 
 StlView(f);
 

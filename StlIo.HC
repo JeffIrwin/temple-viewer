@@ -1,6 +1,6 @@
 
 $ID,2$$WW,0$$WW,1$/* This contains functions for reading and writing STL files.  For now, only reading is supported. */
-
+
 #include "File"
 
 //================================
@@ -327,4 +327,4 @@ return 0;
 $ID,-2$}
 
 //================================
-$ID,-2$
+$ID,-2$
